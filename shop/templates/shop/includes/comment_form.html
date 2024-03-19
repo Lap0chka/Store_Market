@@ -1,0 +1,226 @@
+
+<div class="tab-pane fade show active" id="tab-pane-3">
+    <div class="row">
+        <div class="col-md-6" id="comments-container">
+            <h4 class="mb-4">
+                {% with comments.count as total_comments %}
+                    {{ total_comments }} review{{ total_comments|pluralize }}
+                {% endwith %} for {{product.name}}
+            </h4>
+            {% for comment in comments %}
+                <div class="media mb-4" >
+                    <img src="img/user.jpg" alt="Image" class="img-fluid mr-3 mt-1" style="width: 45px;">
+                    <div class="media-body">
+
+                            <h6>{{ comment.user }}<small> - <i>{{ comment.created }}</i></small></h6>
+                            <div class="d-flex mb-1">
+                                {{ comment.stars_representation|safe }}
+                                <small>({{ comment.rating }})</small>
+                            </div>
+                            <p>{{ comment.body }}</p>
+                                 <!-- Кнопка "Reply" для открытия/закрытия формы -->
+
+                            <a href="#" class="reply-link" data-parent="{{ comment.id }}" onclick="toggleReplyForm({{ comment.id }})">Reply</a>
+                            <a href="#" style="color:green;" class="like-link" data-comment-id="{{ comment.id }}">Like ({{ comment.get_likes_count }})</a>
+                            <a href="#" style="color:red;" class="dislike-link" data-comment-id="{{ comment.id }}">Dislike ({{ comment.get_dislikes_count }})</a>
+
+                            <!-- Дополнительный div для управления видимостью формы -->
+                            <div  class="reply-form-container" data-parent="{{ comment.id }}">
+                                    <!-- Форма ответа -->
+                                 <form class="reply-form" method="post" >
+                                    {% csrf_token %}
+                                    {{ reply_form.body }}
+                                    <input type="hidden" name="parent_id" value="{{ parent_comment.id }}">
+                                    <input class="btn btn-sm btn-primary pull-right" type="submit" value="send">
+                                </form>
+                            </div>
+                        <!-- Display replies if any -->
+                        {% if comment.replies.all %}
+                            <div class="replies ml-4">
+                                {% for reply in comment.replies.all %}
+                                    <div>
+                                        <h6>{{ reply.user }}<small> - <i>{{ reply.created }}</i></small></h6>
+                                        <p>{{ reply.body }}</p>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        <div class="col-md-6">
+            <h4 class="mb-4">Leave a review</h4>
+            {% if messages %}
+                <ul class="messages">
+                    {% for message in messages %}
+                        {% if message.tags == 'error' %}
+                            <li style="color: red;">{{ message }}</li>
+                        {% else %}
+                            <li style="color: green;">{{ message }}</li>
+                        {% endif %}
+                    {% endfor %}
+                </ul>
+            {% endif %}
+
+            <form id="commentForm" action="" method="post" >
+                {% csrf_token %}
+                <input type="hidden" name="parent_id" id="parent_id">
+                <div class="d-flex my-3">
+                    <p class="mb-0 mr-2">Your Rating * :</p>
+                    <div class="text-primary" id="star-rating">
+                        {% for i in "12345" %}
+                            <i class="far fa-star" data-rating="{{ i }}"></i>
+                        {% endfor %}
+                    </div>
+                </div>
+                <input type="hidden" name="rating" id="rating-input">
+                <div class="form-group">
+                    <label>{{ user.username|capfirst }} Your Review </label>
+                    {{ form.body }}
+                </div>
+                <div class="form-group mb-0">
+
+                    <input class="btn btn-sm btn-primary pull-right" type="submit" value="Add comment">
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // Обработка звезд (рейтинга)
+        function handleStarRating() {
+            const stars = document.querySelectorAll("#star-rating .fa-star");
+            let selectedRating = 0;
+
+            stars.forEach(star => {
+                star.addEventListener("mouseover", function () {
+                    const rating = this.getAttribute("data-rating");
+
+                    // Установите классы для звезд при наведении
+                    stars.forEach(s => {
+                        const sRating = s.getAttribute("data-rating");
+                        if (sRating <= rating) {
+                            s.classList.remove("far");
+                            s.classList.add("fas");
+                        } else {
+                            s.classList.remove("fas");
+                            s.classList.add("far");
+                        }
+                    });
+                });
+
+                star.addEventListener("click", function () {
+                    selectedRating = this.getAttribute("data-rating");
+                    document.getElementById("rating-input").value = selectedRating;
+
+                    // Установите окончательные классы для звезд после клика
+                    stars.forEach(s => {
+                        const sRating = s.getAttribute("data-rating");
+                        if (sRating <= selectedRating) {
+                            s.classList.remove("far");
+                            s.classList.add("fas");
+                        } else {
+                            s.classList.remove("fas");
+                            s.classList.add("far");
+                        }
+                    });
+                });
+
+                star.addEventListener("mouseout", function () {
+                    // Восстановите классы при выходе курсора из области звезд
+                    stars.forEach(s => {
+                        if (s.getAttribute("data-rating") > selectedRating) {
+                            s.classList.remove("fas");
+                            s.classList.add("far");
+                        }
+                    });
+                });
+            });
+        }
+
+        // Сохранение положения прокрутки
+        function handleScrollPosition() {
+            document.getElementById('commentForm').addEventListener('submit', function () {
+                sessionStorage.setItem('scrollPosition', window.scrollY);
+            });
+
+            window.onload = function () {
+                var scrollPosition = sessionStorage.getItem('scrollPosition');
+                if (scrollPosition !== null) {
+                    window.scrollTo(0, scrollPosition);
+                    sessionStorage.removeItem('scrollPosition');
+                }
+            };
+        }
+
+        // Обработка ответов на комментарии
+    function handleReplyForms() {
+        const replyLinks = document.querySelectorAll('.reply-link');
+        replyLinks.forEach(link => {
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                const parentID = this.getAttribute('data-parent');
+                document.getElementById('parent_id').value = parentID;
+
+                // Закрываем все открытые формы перед открытием новой
+                closeAllReplyForms(parentID);
+
+                // После закрытия всех форм, покажем или скроем соответствующую форму
+                toggleReplyForm(parentID);
+            });
+        });
+    }
+
+    // Переключение отображения формы по идентификатору родителя
+    function toggleReplyForm(commentId) {
+    var replyFormContainer = document.querySelector('.reply-form-container[data-parent="' + commentId + '"]');
+    if (replyFormContainer) {
+        var replyForm = replyFormContainer.querySelector('.reply-form');
+
+        // Переключаем видимость формы
+        if (replyFormContainer.style.display === 'none' || replyFormContainer.style.display === '') {
+            replyFormContainer.style.display = 'block';
+
+            // Устанавливаем parent_id в форме ответа
+            replyForm.querySelector('input[name="parent_id"]').value = commentId;
+        } else {
+            replyFormContainer.style.display = 'none';
+        }
+
+        // Закрываем все остальные формы, если текущая форма открыта
+        if (replyFormContainer.style.display === 'block') {
+            closeAllReplyForms(commentId);
+        }
+    } else {
+        console.error("Контейнер формы ответа не найден для комментария с ID: " + commentId);
+    }
+}
+
+    function closeAllReplyForms(commentId) {
+        const allReplyFormContainers = document.querySelectorAll('.reply-form-container');
+        allReplyFormContainers.forEach(container => {
+            const parentCommentId = container.getAttribute('data-parent');
+            if (parentCommentId !== commentId) {
+                container.style.display = 'none';
+            }
+        });
+    }
+
+        // Вызов функций для обработки каждой части
+        handleScrollPosition();
+        handleReplyForms();
+        handleStarRating(); // Добавлен вызов функции для обработки звезд
+         // Скрытие всех форм ответов при загрузке страницы
+        const allReplyFormContainers = document.querySelectorAll('.reply-form-container');
+        allReplyFormContainers.forEach(container => {
+            container.style.display = 'none';
+        });
+    });
+</script>
+
+
+
+

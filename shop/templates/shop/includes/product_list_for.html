@@ -1,0 +1,35 @@
+<div class="product-item bg-light mb-4">
+    <div class="product-img position-relative overflow-hidden">
+        <img class="img-fluid w-100" src="{{product.image.url}}" alt="">
+        <div class="product-action">
+            <form method="post">
+                <input type="hidden" name="product_id" value="{{product.id}}">
+                {% csrf_token %}
+                <a class="btn btn-outline-dark btn-square"><button type="submit" class="btn btn-outline-dark btn-square">
+                    <i class="far fa-heart"></i> <!-- Значок сердца внутри кнопки -->
+                </button></a>
+            </form>
+            <form action="{% url "cart:cart_add" product.id %}" method="post">
+                <strong style="display: none;" class="text-dark mr-3">{{ cart_product_form }}</strong>
+                {% csrf_token %}
+                <a class="btn btn-outline-dark btn-square" href=""><button type="submit" class="btn btn-outline-dark btn-square">
+                    <i class="fa fa-shopping-cart mr-1"></i> <!-- Значок Корзины внутри кнопки -->
+                </button></a>
+            </form>
+        </div>
+    </div>
+    <div class="text-center py-4">
+        <a class="h6 text-decoration-none text-truncate" href="{{product.get_absolute_url}}">{{product.name}}</a>
+        <div class="d-flex align-items-center justify-content-center mt-2">
+            {%if product.discount > 0%}
+                <h5>€{{product.price}}</h5><h6 class="text-muted ml-2"><del>€{{product.old_price}}</del></h6>
+            {%else%}
+                <h5>€{{product.price}}</h5>
+            {%endif%}
+        </div>
+        <div class="d-flex align-items-center justify-content-center mb-1">
+            {{ product.stars_representation|safe }}
+            <small>{{product.average_rating}}</small>
+        </div>
+    </div>
+</div>
